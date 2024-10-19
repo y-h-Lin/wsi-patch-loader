@@ -23,17 +23,23 @@ Key Features:
 ## Installation and Usage
 
 1. Clone the repository:
-    git clone https://github.com/your-username/wsi-patch-loader.git
-    cd wsi-patch-loader
+   ```bash
+   git clone https://github.com/y-h-Lin/wsi-patch-loader.git
+   cd wsi-patch-loader
+   ```
 
-2. Install dependencies:
+3. Install dependencies:
+    ```bash
     pip install -r requirements.txt
+    ```
 
-3. Configure data path:
+4. Configure data path:
 Set the path for WSI files in the `config.yaml` file.
 
-4. Run the loader:
-    python main.py
+5. Run the loader:
+   ```bash
+   python main.py
+   ```
 
 
 ## Example Code
@@ -46,4 +52,4 @@ dataloader = get_dataloader(dataset, batch_size=32, num_workers=4)
 
 for batch in dataloader:
  # Perform model training
- ...    
+```   
