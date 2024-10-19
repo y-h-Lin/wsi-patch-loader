@@ -20,40 +20,50 @@ class WSILoader:
         return np.array(patch)
 
 class WSIDataset(Dataset):
-    def __init__(self, wsi_files, patch_size=1024, stride_size=512, transform=None):
+    def __init__(self, wsi_files, patch_size=1024, target_patches=1000):
         self.wsi_files = wsi_files
         self.patch_size = patch_size
-        self.stride_size = stride_size
-        self.transform = transform
+        self.target_patches = target_patches
         self.patches_per_wsi = self._calculate_patches_per_wsi()
 
     def _calculate_patches_per_wsi(self):
-        # Assume all WSIs are the same size, use the first WSI to calculate
-        loader = WSILoader(self.wsi_files[0], patch_size=self.patch_size)
-        wsi_width, wsi_height = loader.wsi.dimensions
-        x_patches = (wsi_width - self.patch_size) // self.stride_size + 1
-        y_patches = (wsi_height - self.patch_size) // self.stride_size + 1
-        return x_patches * y_patches
+        patches_per_wsi = []
+        for file_path in self.wsi_files:
+            loader = WSILoader(file_path, patch_size=self.patch_size)
+            wsi_width, wsi_height = loader.wsi.dimensions
+            stride = self._calculate_stride(wsi_width, wsi_height)
+            x_patches = (wsi_width - self.patch_size) // stride + 1
+            y_patches = (wsi_height - self.patch_size) // stride + 1
+            patches_per_wsi.append(x_patches * y_patches)
+        return patches_per_wsi
+
+    def _calculate_stride(self, wsi_width, wsi_height):
+        area = wsi_width * wsi_height
+        stride = int(np.sqrt(area / self.target_patches))
+        return max(stride, self.patch_size // 2)
 
     def __len__(self):
-        return len(self.wsi_files) * self.patches_per_wsi
+        return sum(self.patches_per_wsi)
 
     def __getitem__(self, idx):
-        wsi_idx = idx // self.patches_per_wsi
-        patch_idx = idx % self.patches_per_wsi
-        file_path = self.wsi_files[wsi_idx]
+        wsi_idx = 0
+        while idx >= self.patches_per_wsi[wsi_idx]:
+            idx -= self.patches_per_wsi[wsi_idx]
+            wsi_idx += 1
         
+        file_path = self.wsi_files[wsi_idx]
         loader = WSILoader(file_path, patch_size=self.patch_size)
         wsi_width, wsi_height = loader.wsi.dimensions
+        stride = self._calculate_stride(wsi_width, wsi_height)
         
-        x = (patch_idx % ((wsi_width - self.patch_size) // self.stride_size + 1)) * self.stride_size
-        y = (patch_idx // ((wsi_width - self.patch_size) // self.stride_size + 1)) * self.stride_size
+        x_patches = (wsi_width - self.patch_size) // stride + 1
+        x = (idx % x_patches) * stride
+        y = (idx // x_patches) * stride
+        
+        x = min(x, wsi_width - self.patch_size)
+        y = min(y, wsi_height - self.patch_size)
         
         patch = loader.get_patch(x, y)
-        
-        if self.transform:
-            patch = self.transform(patch)
-        
         return {"image": patch, "name": f"{os.path.basename(file_path)}_{x}_{y}"}
 
 def get_transforms(is_strong=False):
